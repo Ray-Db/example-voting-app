@@ -93,18 +93,18 @@ pipeline {
        agent{
          docker{
            image 'node:8.16.0-alpine'
-           }
-         }
-         when{
-           changeset "**/result/**
         }
-        steps{
-          echo  'Running Unit Tests on result app'
-          dir('result'){
-            sh 'npm install'
-            sh 'npm test'
-          }
-       }
+      }
+      when{
+        changeset "**/result/**
+      }
+      steps{
+        echo  'Running Unit Tests on result app'
+         dir('result'){
+           sh 'npm install'
+           sh 'npm test'
+        }
+      }
     }
     stage('result-docker-package'){
         agent any
