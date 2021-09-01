@@ -96,7 +96,7 @@ pipeline {
         }
       }
       when{
-        changeset "**/result/**
+        changeset "**/result/**"
       }
       steps{
         echo  'Running Unit Tests on result app'
