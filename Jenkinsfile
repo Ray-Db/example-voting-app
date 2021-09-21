@@ -232,4 +232,5 @@ pipeline {
       echo 'Building multibranch pipeline for worker is completed..'
     }
   }
+ }
 }
