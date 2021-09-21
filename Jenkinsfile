@@ -31,12 +31,12 @@ pipeline {
         }
       }
       steps{             
-        echo 'Running Unit Tets on worker app'         
+        echo 'Running Unit Tets on worker app...'         
         dir('worker'){
           sh 'mvn clean test'
          } 
         }      
-       }      
+      }      
     stage("worker package"){ 
       when{
           branch 'master'
@@ -59,6 +59,10 @@ pipeline {
        }  
     stage('worker-docker-package'){
       agent any
+      when{
+        changeset "**/worker/**"
+        branch 'master'
+      }
       steps{
          echo 'Packaging worker app with docker'
 
@@ -67,6 +71,7 @@ pipeline {
              def workerImage = docker.build("raydb/worker:v${env.BUILD_ID}", "./worker")
              workerImage.push()
              workerImage.push("${env.BRANCH_NAME}")
+             workerImage.push("latest")
            }
          }
        }
@@ -120,6 +125,7 @@ pipeline {
              def workerImage = docker.build("raydb/worker:v${env.BUILD_ID}", "./result")
              workerImage.push()
              workerImage.push("${env.BRANCH_NAME}")
+             workerImage.push("latest")
            }
           }        
         }
@@ -168,25 +174,62 @@ pipeline {
              def workerImage = docker.build("raydb/worker:v${env.BUILD_ID}", "./vote")
              workerImage.push()
              workerImage.push("${env.BRANCH_NAME}")
+             workerImage.push("latest")
            }
          }
        }
- 
-       
+     
+    stage('Sonarqube') {
+      agent any
+  /*    when{
+        branch 'master'
+     }*/
+      tools {
+        jdk "JDK11" // the name you have given the JDK installation in Global Tool Configuration
+      }
+
+      environment{
+        sonarpath = tool 'SonarScanner'
+      }
+
+      steps {
+            echo 'Running Sonarqube Analysis..'
+            withSonarQubeEnv('sonar-instavote') {
+              sh "${sonarpath}/bin/sonar-scanner -Dproject.settings=sonar-project.properties -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=86400"
+            }
+      }
+    }
+
+
+    stage("Quality Gate") {
+        steps {
+            timeout(time: 1, unit: 'HOURS') {
+                // Parameter indicates whether to set pipeline to UNSTABLE if Quality Gate fails
+                // true = set pipeline to UNSTABLE, false = don't
+                waitForQualityGate abortPipeline: true
+            }
+        }
+    }
+
+    stage('deploy to dev'){
+          agent any
+          when{
+            branch 'master'
+          }
+          steps{
+            echo 'Deploy instavote app with docker compose'
+            sh 'docker-compose up -d'
+          }
+      }
+         
    }
    
-
+  
 
   }  
   post{    
     always{        
       echo 'Building multibranch pipeline for worker is completed..'
-      }  
-    failure{      
-      slackSend (channel: "instavote-cd", message: "Build Failed - ${env.JOB_NAME} ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)")    }    
-    success{      
-      slackSend (channel: "instavote-cd", message: "Build Succeeded - ${env.JOB_NAME} ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open)")    
-
     }
   }
 }
